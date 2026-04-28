@@ -1,0 +1,32 @@
+name: 'IG IAP Tunnel'
+description: 'Download and run ig-iap-tunnel to create an IAP tunnel to a GCP instance group'
+branding:
+  icon: 'link'
+  color: 'blue'
+
+inputs:
+  version:
+    description: 'ig-iap-tunnel release version (e.g. v1.2.3). Defaults to latest.'
+    required: false
+    default: 'latest'
+  instance_group_id:
+    description: 'GCP instance group ID: projects/{project}/regions/{region}/instanceGroups/{name}'
+    required: true
+  remote-port:
+    description: 'Remote port on the target instance'
+    required: false
+    default: '8888'
+  local-port:
+    description: 'Local port to listen on'
+    required: false
+    default: '8888'
+  github-token:
+    description: 'GitHub token used to resolve the latest release version'
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: 'node24'
+  main: 'dist/index.js'
+  post: 'dist/post/index.js'
+  post-if: 'always()'
