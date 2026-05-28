@@ -20358,6 +20358,47 @@ var require_coerce = __commonJS({
   }
 });
 
+// node_modules/@actions/cache/node_modules/semver/functions/truncate.js
+var require_truncate = __commonJS({
+  "node_modules/@actions/cache/node_modules/semver/functions/truncate.js"(exports2, module2) {
+    "use strict";
+    var parse2 = require_parse2();
+    var constants4 = require_constants6();
+    var SemVer = require_semver();
+    var truncate = (version3, truncation, options) => {
+      if (!constants4.RELEASE_TYPES.includes(truncation)) {
+        return null;
+      }
+      const clonedVersion = cloneInputVersion(version3, options);
+      return clonedVersion && doTruncation(clonedVersion, truncation);
+    };
+    var cloneInputVersion = (version3, options) => {
+      const versionStringToParse = version3 instanceof SemVer ? version3.version : version3;
+      return parse2(versionStringToParse, options);
+    };
+    var doTruncation = (version3, truncation) => {
+      if (isPrerelease(truncation)) {
+        return version3.version;
+      }
+      version3.prerelease = [];
+      switch (truncation) {
+        case "major":
+          version3.minor = 0;
+          version3.patch = 0;
+          break;
+        case "minor":
+          version3.patch = 0;
+          break;
+      }
+      return version3.format();
+    };
+    var isPrerelease = (type) => {
+      return type.startsWith("pre");
+    };
+    module2.exports = truncate;
+  }
+});
+
 // node_modules/@actions/cache/node_modules/semver/internal/lrucache.js
 var require_lrucache = __commonJS({
   "node_modules/@actions/cache/node_modules/semver/internal/lrucache.js"(exports2, module2) {
@@ -21392,6 +21433,7 @@ var require_semver2 = __commonJS({
     var lte = require_lte();
     var cmp = require_cmp();
     var coerce = require_coerce();
+    var truncate = require_truncate();
     var Comparator = require_comparator();
     var Range = require_range();
     var satisfies3 = require_satisfies();
@@ -21430,6 +21472,7 @@ var require_semver2 = __commonJS({
       lte,
       cmp,
       coerce,
+      truncate,
       Comparator,
       Range,
       satisfies: satisfies3,
@@ -22850,7 +22893,7 @@ var require_package = __commonJS({
   "node_modules/@actions/cache/package.json"(exports2, module2) {
     module2.exports = {
       name: "@actions/cache",
-      version: "6.0.0",
+      version: "6.0.1",
       description: "Actions cache lib",
       keywords: [
         "github",
@@ -22893,21 +22936,21 @@ var require_package = __commonJS({
         url: "https://github.com/actions/toolkit/issues"
       },
       dependencies: {
-        "@actions/core": "^3.0.0",
+        "@actions/core": "^3.0.1",
         "@actions/exec": "^3.0.0",
         "@actions/glob": "^0.6.1",
-        "@actions/http-client": "^4.0.0",
-        "@actions/io": "^3.0.0",
-        "@azure/core-rest-pipeline": "^1.22.0",
-        "@azure/storage-blob": "^12.30.0",
+        "@actions/http-client": "^4.0.1",
+        "@actions/io": "^3.0.2",
+        "@azure/core-rest-pipeline": "^1.23.0",
+        "@azure/storage-blob": "^12.31.0",
         "@protobuf-ts/runtime-rpc": "^2.11.1",
-        semver: "^7.7.3"
+        semver: "^7.7.4"
       },
       devDependencies: {
-        "@protobuf-ts/plugin": "^2.9.4",
-        "@types/node": "^25.1.0",
+        "@protobuf-ts/plugin": "^2.11.1",
+        "@types/node": "^25.6.0",
         "@types/semver": "^7.7.1",
-        typescript: "^5.2.2"
+        typescript: "^5.9.3"
       },
       overrides: {
         "uri-js": "npm:uri-js-replace@^1.0.1",
@@ -63800,7 +63843,7 @@ NetworkError.isNetworkErrorCode = (code) => {
 };
 var UsageError = class extends Error {
   constructor() {
-    const message = `Cache storage quota has been hit. Unable to upload any new cache entries. Usage is recalculated every 6-12 hours.
+    const message = `Cache storage quota has been hit. Unable to upload any new cache entries.
 More info on storage limits: https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions#calculating-minute-and-storage-spending`;
     super(message);
     this.name = "UsageError";
