@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as net from 'net';
 import * as path from 'path';
 import { get as httpsGet, RequestOptions } from 'https';
 
@@ -72,6 +73,37 @@ export function findFile(dir: string, name: string): string | null {
     }
   }
   return null;
+}
+
+export function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs;
+
+    function attempt(): void {
+      const sock = new net.Socket();
+      let settled = false;
+
+      const finish = (err?: Error): void => {
+        if (settled) return;
+        settled = true;
+        sock.destroy();
+        if (!err) {
+          resolve();
+        } else if (Date.now() >= deadline) {
+          reject(new Error(`Proxy on port ${port} did not become ready within ${timeoutMs / 1000}s`));
+        } else {
+          setTimeout(attempt, 1_000);
+        }
+      };
+
+      sock.setTimeout(1_000);
+      sock.connect(port, '127.0.0.1', () => finish());
+      sock.on('error', finish);
+      sock.on('timeout', () => finish(new Error('timeout')));
+    }
+
+    attempt();
+  });
 }
 
 export async function waitForExit(pid: number, timeoutMs = 10_000): Promise<void> {

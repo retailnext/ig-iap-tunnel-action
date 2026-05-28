@@ -18659,6 +18659,9 @@ function issueCommand(command, properties, message) {
   const cmd = new Command(command, properties, message);
   process.stdout.write(cmd.toString() + os.EOL);
 }
+function issue(name, message = "") {
+  issueCommand(name, {}, message);
+}
 var CMD_STRING = "::";
 var Command = class {
   constructor(command, properties, message) {
@@ -19073,9 +19076,18 @@ function error(message, properties = {}) {
 function info(message) {
   process.stdout.write(message + os3.EOL);
 }
+function startGroup(name) {
+  issue("group", name);
+}
+function endGroup() {
+  issue("endgroup");
+}
 function getState(name) {
   return process.env[`STATE_${name}`] || "";
 }
+
+// src/post.ts
+var fs2 = __toESM(require("fs"));
 
 // src/lib.ts
 async function waitForExit(pid, timeoutMs = 1e4) {
@@ -19102,17 +19114,27 @@ async function run() {
     return;
   }
   const pid = parseInt(pidStr, 10);
-  info(`Stopping ig-iap-tunnel (PID ${pid})`);
   try {
     process.kill(pid, "SIGTERM");
+    info(`Sent SIGTERM to ig-iap-tunnel (PID ${pid})`);
   } catch (err) {
     if (err.code === "ESRCH") {
       info("ig-iap-tunnel already exited");
-      return;
+    } else {
+      throw err;
     }
-    throw err;
   }
   await waitForExit(pid);
+  const logFile = getState("log_file");
+  if (logFile) {
+    startGroup("ig-iap-tunnel logs");
+    try {
+      info(fs2.readFileSync(logFile, "utf8"));
+    } catch (err) {
+      info(`(could not read log file ${logFile}: ${err})`);
+    }
+    endGroup();
+  }
   info("ig-iap-tunnel stopped");
 }
 run().catch(setFailed);

@@ -17,5 +17,10 @@
     "gomodTidy",
     "gomodUpdateImportPaths"
   ],
-  "rebaseWhen": "conflicted"
+  "rebaseWhen": "conflicted",
+  "postUpgradeTasks": {
+    "commands": ["npm run build"],
+    "fileFilters": ["dist/**"],
+    "executionMode": "branch"
+  }
 }

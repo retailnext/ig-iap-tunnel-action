@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
-import { getPlatform, getBinaryName, resolveVersion, findFile } from './lib';
+import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort } from './lib';
 
 const BINARY = 'ig-iap-tunnel';
 
@@ -35,6 +35,9 @@ async function run(): Promise<void> {
     core.info(`Binary restored from cache (${cacheKey})`);
   }
 
+  const logFile = path.join(os.tmpdir(), 'ig-iap-tunnel.log');
+  const logFd = fs.openSync(logFile, 'w');
+
   const proc = spawn(
     binaryPath,
     [
@@ -42,8 +45,10 @@ async function run(): Promise<void> {
       '--remote-port', remotePort,
       '--local-port', localPort,
     ],
-    { detached: true, stdio: 'ignore' },
+    { detached: true, stdio: ['ignore', logFd, logFd] },
   );
+
+  fs.closeSync(logFd);
   proc.unref();
 
   if (proc.pid === undefined) {
@@ -51,7 +56,10 @@ async function run(): Promise<void> {
   }
 
   core.saveState('pid', String(proc.pid));
-  core.info(`ig-iap-tunnel started (PID ${proc.pid})`);
+  core.saveState('log_file', logFile);
+  core.info(`ig-iap-tunnel started (PID ${proc.pid}), waiting for proxy on port ${localPort}...`);
+  await waitForPort(parseInt(localPort, 10), 60_000);
+  core.info(`Proxy is ready on port ${localPort}`);
 }
 
 async function download(
