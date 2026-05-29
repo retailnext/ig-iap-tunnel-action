@@ -1,9 +1,10 @@
 import * as fs from 'fs';
+import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
 import * as https from 'https';
 import { EventEmitter } from 'events';
-import { getPlatform, getBinaryName, resolveVersion, findFile, waitForExit } from '../src/lib';
+import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit } from '../src/lib';
 
 jest.mock('https');
 
@@ -144,6 +145,55 @@ describe('findFile', () => {
     fs.mkdirSync(dirPath);
     expect(findFile(tmpDir, 'ig-iap-tunnel_1.0.0_linux_amd64')).toBeNull();
   });
+});
+
+// ---------------------------------------------------------------------------
+// waitForPort
+// ---------------------------------------------------------------------------
+describe('waitForPort', () => {
+  function listenOnFreePort(server: net.Server): Promise<number> {
+    return new Promise((resolve) => server.listen(0, '127.0.0.1', () => {
+      resolve((server.address() as net.AddressInfo).port);
+    }));
+  }
+
+  function closeServer(server: net.Server): Promise<void> {
+    return new Promise((resolve) => server.close(() => resolve()));
+  }
+
+  it('resolves immediately when port is already listening', async () => {
+    const server = net.createServer();
+    const port = await listenOnFreePort(server);
+    try {
+      await expect(waitForPort(port, 5_000)).resolves.toBeUndefined();
+    } finally {
+      await closeServer(server);
+    }
+  }, 10_000);
+
+  it('rejects after timeout when nothing is listening', async () => {
+    // Grab a free port number, then release it so nothing is listening
+    const server = net.createServer();
+    const port = await listenOnFreePort(server);
+    await closeServer(server);
+
+    await expect(waitForPort(port, 100)).rejects.toThrow('did not become ready');
+  }, 5_000);
+
+  it('resolves when the port starts listening before the deadline', async () => {
+    const server = net.createServer();
+    const port = await listenOnFreePort(server);
+    await closeServer(server);
+
+    // Start listening again after a short delay
+    setTimeout(() => server.listen(port, '127.0.0.1'), 300);
+
+    try {
+      await expect(waitForPort(port, 5_000)).resolves.toBeUndefined();
+    } finally {
+      await closeServer(server);
+    }
+  }, 10_000);
 });
 
 // ---------------------------------------------------------------------------

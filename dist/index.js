@@ -33,7 +33,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var require_tunnel = __commonJS({
   "node_modules/tunnel/lib/tunnel.js"(exports2) {
     "use strict";
-    var net = require("net");
     var tls = require("tls");
     var http3 = require("http");
     var https3 = require("https");
@@ -960,7 +959,7 @@ var require_util = __commonJS({
     var { kDestroyed, kBodyUsed, kListeners, kBody } = require_symbols();
     var { IncomingMessage } = require("node:http");
     var stream3 = require("node:stream");
-    var net = require("node:net");
+    var net2 = require("node:net");
     var { Blob: Blob2 } = require("node:buffer");
     var nodeUtil = require("node:util");
     var { stringify } = require("node:querystring");
@@ -1105,7 +1104,7 @@ var require_util = __commonJS({
       }
       assert4(typeof host === "string");
       const servername = getHostname(host);
-      if (net.isIP(servername)) {
+      if (net2.isIP(servername)) {
         return "";
       }
       return servername;
@@ -2434,7 +2433,7 @@ var require_timers = __commonJS({
 var require_connect = __commonJS({
   "node_modules/undici/lib/core/connect.js"(exports2, module2) {
     "use strict";
-    var net = require("node:net");
+    var net2 = require("node:net");
     var assert4 = require("node:assert");
     var util6 = require_util();
     var { InvalidArgumentError, ConnectTimeoutError } = require_errors();
@@ -2530,7 +2529,7 @@ var require_connect = __commonJS({
         } else {
           assert4(!httpSocket, "httpSocket can only be sent on TLS update");
           port = port || 80;
-          socket = net.connect({
+          socket = net2.connect({
             highWaterMark: 64 * 1024,
             // Same as nodejs fs streams.
             ...options,
@@ -7400,7 +7399,7 @@ var require_client = __commonJS({
   "node_modules/undici/lib/dispatcher/client.js"(exports2, module2) {
     "use strict";
     var assert4 = require("node:assert");
-    var net = require("node:net");
+    var net2 = require("node:net");
     var http3 = require("node:http");
     var util6 = require_util();
     var { channels } = require_diagnostics();
@@ -7549,7 +7548,7 @@ var require_client = __commonJS({
         if (maxRequestsPerClient != null && (!Number.isInteger(maxRequestsPerClient) || maxRequestsPerClient < 0)) {
           throw new InvalidArgumentError("maxRequestsPerClient must be a positive number");
         }
-        if (localAddress != null && (typeof localAddress !== "string" || net.isIP(localAddress) === 0)) {
+        if (localAddress != null && (typeof localAddress !== "string" || net2.isIP(localAddress) === 0)) {
           throw new InvalidArgumentError("localAddress must be valid string IP address");
         }
         if (maxResponseSize != null && (!Number.isInteger(maxResponseSize) || maxResponseSize < -1)) {
@@ -7713,7 +7712,7 @@ var require_client = __commonJS({
         const idx = hostname.indexOf("]");
         assert4(idx !== -1);
         const ip = hostname.substring(1, idx);
-        assert4(net.isIP(ip));
+        assert4(net2.isIP(ip));
         hostname = ip;
       }
       client[kConnecting] = true;
@@ -22368,7 +22367,7 @@ var require_dist = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Agent = void 0;
-    var net = __importStar(require("net"));
+    var net2 = __importStar(require("net"));
     var http3 = __importStar(require("http"));
     var https_1 = require("https");
     __exportStar(require_helpers(), exports2);
@@ -22408,7 +22407,7 @@ var require_dist = __commonJS({
         if (!this.sockets[name]) {
           this.sockets[name] = [];
         }
-        const fakeSocket = new net.Socket({ writable: false });
+        const fakeSocket = new net2.Socket({ writable: false });
         this.sockets[name].push(fakeSocket);
         this.totalSocketCount++;
         return fakeSocket;
@@ -22620,7 +22619,7 @@ var require_dist2 = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.HttpsProxyAgent = void 0;
-    var net = __importStar(require("net"));
+    var net2 = __importStar(require("net"));
     var tls = __importStar(require("tls"));
     var assert_1 = __importDefault(require("assert"));
     var debug_1 = __importDefault(require_src());
@@ -22629,7 +22628,7 @@ var require_dist2 = __commonJS({
     var parse_proxy_response_1 = require_parse_proxy_response();
     var debug2 = (0, debug_1.default)("https-proxy-agent");
     var setServernameFromNonIpHost = (options) => {
-      if (options.servername === void 0 && options.host && !net.isIP(options.host)) {
+      if (options.servername === void 0 && options.host && !net2.isIP(options.host)) {
         return {
           ...options,
           servername: options.host
@@ -22669,10 +22668,10 @@ var require_dist2 = __commonJS({
           socket = tls.connect(setServernameFromNonIpHost(this.connectOpts));
         } else {
           debug2("Creating `net.Socket`: %o", this.connectOpts);
-          socket = net.connect(this.connectOpts);
+          socket = net2.connect(this.connectOpts);
         }
         const headers = typeof this.proxyHeaders === "function" ? this.proxyHeaders() : { ...this.proxyHeaders };
-        const host = net.isIPv6(opts.host) ? `[${opts.host}]` : opts.host;
+        const host = net2.isIPv6(opts.host) ? `[${opts.host}]` : opts.host;
         let payload = `CONNECT ${host}:${opts.port} HTTP/1.1\r
 `;
         if (proxy.username || proxy.password) {
@@ -22705,7 +22704,7 @@ var require_dist2 = __commonJS({
           return socket;
         }
         socket.destroy();
-        const fakeSocket = new net.Socket({ writable: false });
+        const fakeSocket = new net2.Socket({ writable: false });
         fakeSocket.readable = true;
         req.once("socket", (s) => {
           debug2("Replaying proxy buffer for failed request");
@@ -22770,7 +22769,7 @@ var require_dist3 = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.HttpProxyAgent = void 0;
-    var net = __importStar(require("net"));
+    var net2 = __importStar(require("net"));
     var tls = __importStar(require("tls"));
     var debug_1 = __importDefault(require_src());
     var events_1 = require("events");
@@ -22843,7 +22842,7 @@ var require_dist3 = __commonJS({
           socket = tls.connect(this.connectOpts);
         } else {
           debug2("Creating `net.Socket`: %o", this.connectOpts);
-          socket = net.connect(this.connectOpts);
+          socket = net2.connect(this.connectOpts);
         }
         await (0, events_1.once)(socket, "connect");
         return socket;
@@ -66432,6 +66431,7 @@ var import_child_process = require("child_process");
 
 // src/lib.ts
 var fs9 = __toESM(require("fs"));
+var net = __toESM(require("net"));
 var path12 = __toESM(require("path"));
 var import_https = require("https");
 var OS_MAP = {
@@ -66494,6 +66494,32 @@ function findFile(dir, name) {
   }
   return null;
 }
+function waitForPort(port, timeoutMs = 6e4) {
+  return new Promise((resolve2, reject) => {
+    const deadline = Date.now() + timeoutMs;
+    function attempt() {
+      const sock = new net.Socket();
+      let settled = false;
+      const finish = (err) => {
+        if (settled) return;
+        settled = true;
+        sock.destroy();
+        if (!err) {
+          resolve2();
+        } else if (Date.now() >= deadline) {
+          reject(new Error(`Proxy on port ${port} did not become ready within ${timeoutMs / 1e3}s`));
+        } else {
+          setTimeout(attempt, 1e3);
+        }
+      };
+      sock.setTimeout(1e3);
+      sock.connect(port, "127.0.0.1", () => finish());
+      sock.on("error", finish);
+      sock.on("timeout", () => finish(new Error("timeout")));
+    }
+    attempt();
+  });
+}
 
 // src/main.ts
 var BINARY = "ig-iap-tunnel";
@@ -66519,6 +66545,8 @@ async function run() {
   } else {
     info(`Binary restored from cache (${cacheKey})`);
   }
+  const logFile = path13.join(os8.tmpdir(), "ig-iap-tunnel.log");
+  const logFd = fs10.openSync(logFile, "w");
   const proc = (0, import_child_process.spawn)(
     binaryPath,
     [
@@ -66529,14 +66557,18 @@ async function run() {
       "--local-port",
       localPort
     ],
-    { detached: true, stdio: "ignore" }
+    { detached: true, stdio: ["ignore", logFd, logFd] }
   );
+  fs10.closeSync(logFd);
   proc.unref();
   if (proc.pid === void 0) {
     throw new Error("Failed to start ig-iap-tunnel: process did not return a PID");
   }
   saveState("pid", String(proc.pid));
-  info(`ig-iap-tunnel started (PID ${proc.pid})`);
+  saveState("log_file", logFile);
+  info(`ig-iap-tunnel started (PID ${proc.pid}), waiting for proxy on port ${localPort}...`);
+  await waitForPort(parseInt(localPort, 10), 6e4);
+  info(`Proxy is ready on port ${localPort}`);
 }
 async function download(version3, binaryName, destDir, destPath) {
   const tarName = `${binaryName}.tar.gz`;
