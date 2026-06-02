@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
-import * as fs from 'fs';
-import { waitForExit } from './lib';
+import { waitForExit, readTail } from './lib';
+
+const MAX_LOG_BYTES = 64 * 1024;
 
 async function run(): Promise<void> {
   const pidStr = core.getState('pid');
@@ -28,7 +29,7 @@ async function run(): Promise<void> {
   if (logFile) {
     core.startGroup('ig-iap-tunnel logs');
     try {
-      core.info(fs.readFileSync(logFile, 'utf8'));
+      core.info(readTail(logFile, MAX_LOG_BYTES));
     } catch (err) {
       core.info(`(could not read log file ${logFile}: ${err})`);
     }

@@ -13,7 +13,11 @@ async function run(): Promise<void> {
   const versionInput = core.getInput('version') || 'latest';
   const instanceGroupId = core.getInput('instance_group_id', { required: true });
   const remotePort = core.getInput('remote-port') || '8888';
-  const localPort = core.getInput('local-port') || '8888';
+  const localPortInput = core.getInput('local-port') || '8888';
+  const localPort = parseInt(localPortInput, 10);
+  if (isNaN(localPort) || localPort < 1 || localPort > 65535) {
+    throw new Error(`Invalid local-port: ${localPortInput}`);
+  }
   const token = core.getInput('github-token') || process.env.GITHUB_TOKEN || '';
 
   const version = await resolveVersion(versionInput, token);
@@ -35,7 +39,8 @@ async function run(): Promise<void> {
     core.info(`Binary restored from cache (${cacheKey})`);
   }
 
-  const logFile = path.join(os.tmpdir(), 'ig-iap-tunnel.log');
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ig-iap-tunnel-'));
+  const logFile = path.join(logDir, 'ig-iap-tunnel.log');
   const logFd = fs.openSync(logFile, 'w');
 
   const proc = spawn(
@@ -43,7 +48,7 @@ async function run(): Promise<void> {
     [
       '--instance-group-id', instanceGroupId,
       '--remote-port', remotePort,
-      '--local-port', localPort,
+      '--local-port', String(localPort),
     ],
     { detached: true, stdio: ['ignore', logFd, logFd] },
   );
@@ -58,7 +63,7 @@ async function run(): Promise<void> {
   core.saveState('pid', String(proc.pid));
   core.saveState('log_file', logFile);
   core.info(`ig-iap-tunnel started (PID ${proc.pid}), waiting for proxy on port ${localPort}...`);
-  await waitForPort(parseInt(localPort, 10), 60_000);
+  await waitForPort(localPort, 60_000);
   core.info(`Proxy is ready on port ${localPort}`);
 }
 

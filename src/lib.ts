@@ -106,6 +106,25 @@ export function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
   });
 }
 
+export function readTail(filePath: string, maxBytes: number): string {
+  const stat = fs.statSync(filePath);
+  if (stat.size <= maxBytes) {
+    return fs.readFileSync(filePath, 'utf8');
+  }
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    fs.readSync(fd, buf, 0, maxBytes, stat.size - maxBytes);
+    const raw = buf.toString('utf8');
+    // Drop any partial first line caused by the seek offset
+    const newline = raw.indexOf('\n');
+    const tail = newline >= 0 ? raw.slice(newline + 1) : raw;
+    return `(log truncated — ${stat.size} bytes total, showing last ${maxBytes} bytes)\n${tail}`;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 export async function waitForExit(pid: number, timeoutMs = 10_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

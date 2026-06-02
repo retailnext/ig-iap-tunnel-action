@@ -19086,10 +19086,26 @@ function getState(name) {
   return process.env[`STATE_${name}`] || "";
 }
 
-// src/post.ts
-var fs2 = __toESM(require("fs"));
-
 // src/lib.ts
+var fs2 = __toESM(require("fs"));
+function readTail(filePath, maxBytes) {
+  const stat2 = fs2.statSync(filePath);
+  if (stat2.size <= maxBytes) {
+    return fs2.readFileSync(filePath, "utf8");
+  }
+  const fd = fs2.openSync(filePath, "r");
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    fs2.readSync(fd, buf, 0, maxBytes, stat2.size - maxBytes);
+    const raw = buf.toString("utf8");
+    const newline = raw.indexOf("\n");
+    const tail = newline >= 0 ? raw.slice(newline + 1) : raw;
+    return `(log truncated \u2014 ${stat2.size} bytes total, showing last ${maxBytes} bytes)
+${tail}`;
+  } finally {
+    fs2.closeSync(fd);
+  }
+}
 async function waitForExit(pid, timeoutMs = 1e4) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -19107,6 +19123,7 @@ async function waitForExit(pid, timeoutMs = 1e4) {
 }
 
 // src/post.ts
+var MAX_LOG_BYTES = 64 * 1024;
 async function run() {
   const pidStr = getState("pid");
   if (!pidStr) {
@@ -19129,7 +19146,7 @@ async function run() {
   if (logFile) {
     startGroup("ig-iap-tunnel logs");
     try {
-      info(fs2.readFileSync(logFile, "utf8"));
+      info(readTail(logFile, MAX_LOG_BYTES));
     } catch (err) {
       info(`(could not read log file ${logFile}: ${err})`);
     }

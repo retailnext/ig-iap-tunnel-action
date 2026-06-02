@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as https from 'https';
 import { EventEmitter } from 'events';
-import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit } from '../src/lib';
+import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit, readTail } from '../src/lib';
 
 jest.mock('https');
 
@@ -144,6 +144,63 @@ describe('findFile', () => {
     const dirPath = path.join(tmpDir, 'ig-iap-tunnel_1.0.0_linux_amd64');
     fs.mkdirSync(dirPath);
     expect(findFile(tmpDir, 'ig-iap-tunnel_1.0.0_linux_amd64')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readTail
+// ---------------------------------------------------------------------------
+describe('readTail', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'iap-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns full content when file is within the limit', () => {
+    const file = path.join(tmpDir, 'small.log');
+    fs.writeFileSync(file, 'line1\nline2\n');
+    expect(readTail(file, 1024)).toBe('line1\nline2\n');
+  });
+
+  it('returns full content when file size equals maxBytes exactly', () => {
+    const content = 'a'.repeat(16);
+    const file = path.join(tmpDir, 'exact.log');
+    fs.writeFileSync(file, content);
+    expect(readTail(file, 16)).toBe(content);
+  });
+
+  it('truncates and prepends notice when file exceeds the limit', () => {
+    const head = 'old line\n'.repeat(100);
+    const tail = 'new line\n'.repeat(5);
+    const file = path.join(tmpDir, 'large.log');
+    fs.writeFileSync(file, head + tail);
+    const result = readTail(file, tail.length);
+    expect(result).toMatch(/^\(log truncated/);
+    expect(result).toContain('new line\n');
+    expect(result).not.toContain('old line');
+  });
+
+  it('skips a partial first line after seeking', () => {
+    // Content where the seek lands mid-line: ensure no partial line appears
+    const file = path.join(tmpDir, 'partial.log');
+    fs.writeFileSync(file, 'PARTIAL_LINE_START\nclean line\n');
+    // maxBytes covers 'LINE_START\nclean line\n' — seek lands mid-word
+    const result = readTail(file, 22);
+    expect(result).not.toContain('PARTIAL');
+    expect(result).toContain('clean line\n');
+  });
+
+  it('returns buffer content as-is when there is no newline in the tail', () => {
+    const file = path.join(tmpDir, 'nonewline.log');
+    fs.writeFileSync(file, 'aaaaabbbbb');
+    const result = readTail(file, 5);
+    expect(result).toMatch(/^\(log truncated/);
+    expect(result).toContain('bbbbb');
   });
 });
 

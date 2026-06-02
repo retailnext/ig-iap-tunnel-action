@@ -4,9 +4,8 @@
 const fs = require('fs');
 const f = 'dist/index.js';
 const before = fs.readFileSync(f, 'utf8');
-const after = before.replace('    var net2 = require("net");\n', '');
-if (before === after) {
-  process.stderr.write('postbuild: warning: net2 line not found in dist/index.js\n');
-} else {
+// Match either quote style and any leading indentation; no-op if not present.
+const after = before.replace(/^[ \t]*var net2 = require\(["']net["']\);\n/m, '');
+if (before !== after) {
   fs.writeFileSync(f, after);
 }

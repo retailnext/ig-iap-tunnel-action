@@ -66527,7 +66527,11 @@ async function run() {
   const versionInput = getInput("version") || "latest";
   const instanceGroupId = getInput("instance_group_id", { required: true });
   const remotePort = getInput("remote-port") || "8888";
-  const localPort = getInput("local-port") || "8888";
+  const localPortInput = getInput("local-port") || "8888";
+  const localPort = parseInt(localPortInput, 10);
+  if (isNaN(localPort) || localPort < 1 || localPort > 65535) {
+    throw new Error(`Invalid local-port: ${localPortInput}`);
+  }
   const token = getInput("github-token") || process.env.GITHUB_TOKEN || "";
   const version3 = await resolveVersion(versionInput, token);
   info(`ig-iap-tunnel version: ${version3}`);
@@ -66545,7 +66549,8 @@ async function run() {
   } else {
     info(`Binary restored from cache (${cacheKey})`);
   }
-  const logFile = path13.join(os8.tmpdir(), "ig-iap-tunnel.log");
+  const logDir = fs10.mkdtempSync(path13.join(os8.tmpdir(), "ig-iap-tunnel-"));
+  const logFile = path13.join(logDir, "ig-iap-tunnel.log");
   const logFd = fs10.openSync(logFile, "w");
   const proc = (0, import_child_process.spawn)(
     binaryPath,
@@ -66555,7 +66560,7 @@ async function run() {
       "--remote-port",
       remotePort,
       "--local-port",
-      localPort
+      String(localPort)
     ],
     { detached: true, stdio: ["ignore", logFd, logFd] }
   );
@@ -66567,7 +66572,7 @@ async function run() {
   saveState("pid", String(proc.pid));
   saveState("log_file", logFile);
   info(`ig-iap-tunnel started (PID ${proc.pid}), waiting for proxy on port ${localPort}...`);
-  await waitForPort(parseInt(localPort, 10), 6e4);
+  await waitForPort(localPort, 6e4);
   info(`Proxy is ready on port ${localPort}`);
 }
 async function download(version3, binaryName, destDir, destPath) {
