@@ -45,6 +45,10 @@ steps:
 
 The tunnel process is terminated automatically at the end of the job (including on failure) via the action's `post` step — no extra cleanup step is required.
 
+## Logs
+
+After the tunnel is stopped, the post step prints the tunnel's output under a collapsible **ig-iap-tunnel logs** group in the Actions log. If the tunnel produced more than 64 KB of output, only the final 64 KB is shown and a truncation notice is prepended.
+
 ## Custom version and ports
 
 ```yaml

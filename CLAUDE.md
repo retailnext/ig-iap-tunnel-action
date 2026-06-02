@@ -7,9 +7,9 @@ A GitHub Action (Node.js/TypeScript) that downloads, caches, and runs [ig-iap-tu
 ```
 action.yml              — action metadata (node20, main + post lifecycle)
 src/
-  lib.ts                — pure helpers: getPlatform, getBinaryName, resolveVersion, findFile, waitForExit
+  lib.ts                — pure helpers: getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit, readTail
   main.ts               — action entry: resolve version → restore cache → download → spawn tunnel
-  post.ts               — post entry: read saved PID → SIGTERM → wait for exit
+  post.ts               — post entry: read saved PID → SIGTERM → wait for exit → print truncated logs
 __tests__/
   lib.test.ts           — unit tests for all lib.ts exports
 dist/                   — bundled output (committed, built via `npm run build`)
@@ -36,8 +36,8 @@ jest.config.js
 2. **Platform mapping** — `process.platform`/`process.arch` → `linux|darwin|windows` / `amd64|arm64`.
 3. **Cache** — `@actions/cache` restores/saves `~/.ig-iap-tunnel/<version>/` keyed on `ig-iap-tunnel-<version>-<os>-<arch>`.
 4. **Download** — if cache miss, fetches `ig-iap-tunnel_<version>_<os>_<arch>.zip` from the GitHub release, extracts via `@actions/tool-cache`, copies binary to cache dir.
-5. **Start** (`main.ts`) — `child_process.spawn(..., { detached: true, stdio: 'ignore' })` + `unref()`; PID saved to job state via `core.saveState`.
-6. **Stop** (`post.ts`, runs automatically with `post-if: always()`) — reads PID from state, SIGTERMs, polls with `kill -0` until exit (up to 10 s), then SIGKILLs.
+5. **Start** (`main.ts`) — validates `local-port` (1–65535, not NaN); creates a unique log dir via `fs.mkdtempSync` (`$TMPDIR/ig-iap-tunnel-XXXXXX/ig-iap-tunnel.log`); spawns binary with `{ detached: true, stdio: ['ignore', logFd, logFd] }` + `unref()`; saves PID and log path to job state via `core.saveState`.
+6. **Stop** (`post.ts`, runs automatically with `post-if: always()`) — reads PID from state, SIGTERMs, polls with `kill -0` until exit (up to 10 s), then SIGKILLs; reads and prints the last 64 KB of the log file (with a truncation notice if larger).
 
 ## Binary naming convention
 
@@ -71,3 +71,7 @@ npm run build         # bundle src/main.ts → dist/index.js and src/post.ts →
 - `lib.ts` contains only pure/testable functions; `main.ts` and `post.ts` are thin orchestration layers that integrate with Actions APIs and child processes.
 - `waitForExit` uses `kill -0` polling (not `wait`) because the post shell is a different process than the one that spawned the tunnel.
 - `@actions/cache` v4+ is required (v3 is deprecated).
+- The log file lives in a `mkdtemp`-created directory so concurrent or repeated runs on the same runner don't collide or read stale output.
+- `readTail` in `lib.ts` reads the last N bytes of a file, skips any partial first line at the seek boundary, and prepends a truncation notice — used by `post.ts` to cap log output at 64 KB.
+- `local-port` is parsed and range-checked (1–65535) immediately after input reading; the resulting number is used for spawn args, log messages, and `waitForPort` — no repeated `parseInt` at call sites.
+- `scripts/postbuild.js` strips an unused `var net2 = require("net")` line injected by the `tunnel` package; it uses a regex to handle both quote styles and silently no-ops if the line is absent (esbuild output varies across versions).

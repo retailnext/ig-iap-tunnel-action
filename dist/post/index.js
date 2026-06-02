@@ -18659,6 +18659,9 @@ function issueCommand(command, properties, message) {
   const cmd = new Command(command, properties, message);
   process.stdout.write(cmd.toString() + os.EOL);
 }
+function issue(name, message = "") {
+  issueCommand(name, {}, message);
+}
 var CMD_STRING = "::";
 var Command = class {
   constructor(command, properties, message) {
@@ -19073,11 +19076,36 @@ function error(message, properties = {}) {
 function info(message) {
   process.stdout.write(message + os3.EOL);
 }
+function startGroup(name) {
+  issue("group", name);
+}
+function endGroup() {
+  issue("endgroup");
+}
 function getState(name) {
   return process.env[`STATE_${name}`] || "";
 }
 
 // src/lib.ts
+var fs2 = __toESM(require("fs"));
+function readTail(filePath, maxBytes) {
+  const stat2 = fs2.statSync(filePath);
+  if (stat2.size <= maxBytes) {
+    return fs2.readFileSync(filePath, "utf8");
+  }
+  const fd = fs2.openSync(filePath, "r");
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    fs2.readSync(fd, buf, 0, maxBytes, stat2.size - maxBytes);
+    const raw = buf.toString("utf8");
+    const newline = raw.indexOf("\n");
+    const tail = newline >= 0 ? raw.slice(newline + 1) : raw;
+    return `(log truncated \u2014 ${stat2.size} bytes total, showing last ${maxBytes} bytes)
+${tail}`;
+  } finally {
+    fs2.closeSync(fd);
+  }
+}
 async function waitForExit(pid, timeoutMs = 1e4) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -19095,6 +19123,7 @@ async function waitForExit(pid, timeoutMs = 1e4) {
 }
 
 // src/post.ts
+var MAX_LOG_BYTES = 64 * 1024;
 async function run() {
   const pidStr = getState("pid");
   if (!pidStr) {
@@ -19102,17 +19131,27 @@ async function run() {
     return;
   }
   const pid = parseInt(pidStr, 10);
-  info(`Stopping ig-iap-tunnel (PID ${pid})`);
   try {
     process.kill(pid, "SIGTERM");
+    info(`Sent SIGTERM to ig-iap-tunnel (PID ${pid})`);
   } catch (err) {
     if (err.code === "ESRCH") {
       info("ig-iap-tunnel already exited");
-      return;
+    } else {
+      throw err;
     }
-    throw err;
   }
   await waitForExit(pid);
+  const logFile = getState("log_file");
+  if (logFile) {
+    startGroup("ig-iap-tunnel logs");
+    try {
+      info(readTail(logFile, MAX_LOG_BYTES));
+    } catch (err) {
+      info(`(could not read log file ${logFile}: ${err})`);
+    }
+    endGroup();
+  }
   info("ig-iap-tunnel stopped");
 }
 run().catch(setFailed);

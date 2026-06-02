@@ -1,9 +1,10 @@
 import * as fs from 'fs';
+import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
 import * as https from 'https';
 import { EventEmitter } from 'events';
-import { getPlatform, getBinaryName, resolveVersion, findFile, waitForExit } from '../src/lib';
+import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit, readTail } from '../src/lib';
 
 jest.mock('https');
 
@@ -144,6 +145,112 @@ describe('findFile', () => {
     fs.mkdirSync(dirPath);
     expect(findFile(tmpDir, 'ig-iap-tunnel_1.0.0_linux_amd64')).toBeNull();
   });
+});
+
+// ---------------------------------------------------------------------------
+// readTail
+// ---------------------------------------------------------------------------
+describe('readTail', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'iap-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns full content when file is within the limit', () => {
+    const file = path.join(tmpDir, 'small.log');
+    fs.writeFileSync(file, 'line1\nline2\n');
+    expect(readTail(file, 1024)).toBe('line1\nline2\n');
+  });
+
+  it('returns full content when file size equals maxBytes exactly', () => {
+    const content = 'a'.repeat(16);
+    const file = path.join(tmpDir, 'exact.log');
+    fs.writeFileSync(file, content);
+    expect(readTail(file, 16)).toBe(content);
+  });
+
+  it('truncates and prepends notice when file exceeds the limit', () => {
+    const head = 'old line\n'.repeat(100);
+    const tail = 'new line\n'.repeat(5);
+    const file = path.join(tmpDir, 'large.log');
+    fs.writeFileSync(file, head + tail);
+    const result = readTail(file, tail.length);
+    expect(result).toMatch(/^\(log truncated/);
+    expect(result).toContain('new line\n');
+    expect(result).not.toContain('old line');
+  });
+
+  it('skips a partial first line after seeking', () => {
+    // Content where the seek lands mid-line: ensure no partial line appears
+    const file = path.join(tmpDir, 'partial.log');
+    fs.writeFileSync(file, 'PARTIAL_LINE_START\nclean line\n');
+    // maxBytes covers 'LINE_START\nclean line\n' — seek lands mid-word
+    const result = readTail(file, 22);
+    expect(result).not.toContain('PARTIAL');
+    expect(result).toContain('clean line\n');
+  });
+
+  it('returns buffer content as-is when there is no newline in the tail', () => {
+    const file = path.join(tmpDir, 'nonewline.log');
+    fs.writeFileSync(file, 'aaaaabbbbb');
+    const result = readTail(file, 5);
+    expect(result).toMatch(/^\(log truncated/);
+    expect(result).toContain('bbbbb');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// waitForPort
+// ---------------------------------------------------------------------------
+describe('waitForPort', () => {
+  function listenOnFreePort(server: net.Server): Promise<number> {
+    return new Promise((resolve) => server.listen(0, '127.0.0.1', () => {
+      resolve((server.address() as net.AddressInfo).port);
+    }));
+  }
+
+  function closeServer(server: net.Server): Promise<void> {
+    return new Promise((resolve) => server.close(() => resolve()));
+  }
+
+  it('resolves immediately when port is already listening', async () => {
+    const server = net.createServer();
+    const port = await listenOnFreePort(server);
+    try {
+      await expect(waitForPort(port, 5_000)).resolves.toBeUndefined();
+    } finally {
+      await closeServer(server);
+    }
+  }, 10_000);
+
+  it('rejects after timeout when nothing is listening', async () => {
+    // Grab a free port number, then release it so nothing is listening
+    const server = net.createServer();
+    const port = await listenOnFreePort(server);
+    await closeServer(server);
+
+    await expect(waitForPort(port, 100)).rejects.toThrow('did not become ready');
+  }, 5_000);
+
+  it('resolves when the port starts listening before the deadline', async () => {
+    const server = net.createServer();
+    const port = await listenOnFreePort(server);
+    await closeServer(server);
+
+    // Start listening again after a short delay
+    setTimeout(() => server.listen(port, '127.0.0.1'), 300);
+
+    try {
+      await expect(waitForPort(port, 5_000)).resolves.toBeUndefined();
+    } finally {
+      await closeServer(server);
+    }
+  }, 10_000);
 });
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@
   "description": "GitHub Action to set up an IAP tunnel to a GCP instance group via ig-iap-tunnel",
   "private": true,
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --platform=node --target=node24 --outfile=dist/index.js && esbuild src/post.ts --bundle --platform=node --target=node24 --outfile=dist/post/index.js",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node24 --outfile=dist/index.js && esbuild src/post.ts --bundle --platform=node --target=node24 --outfile=dist/post/index.js && node scripts/postbuild.js",
     "test": "jest",
     "all": "npm run build && npm test"
   },
