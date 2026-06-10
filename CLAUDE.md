@@ -44,6 +44,26 @@ jest.config.js
 Releases follow: `ig-iap-tunnel_<version>_<os>_<arch>.zip`
 `<version>` has the `v` prefix stripped (tag `v1.2.3` → `ig-iap-tunnel_1.2.3_linux_amd64.zip`).
 
+## Outputs (action.yml)
+
+| Output      | Description                                         |
+|-------------|-----------------------------------------------------|
+| `proxy-url` | Proxy URL for the tunnel (e.g. `http://localhost:8888`) |
+
+Set after `waitForPort` confirms the tunnel is listening. Use as `HTTPS_PROXY` in subsequent steps:
+
+```yaml
+- id: tunnel
+  uses: retailnext/ig-iap-tunnel-action@v1
+  with:
+    instance_group_id: 'projects/my-project/regions/us-central1/instanceGroups/my-group'
+
+- name: Use proxy
+  env:
+    HTTPS_PROXY: ${{ steps.tunnel.outputs.proxy-url }}
+  run: ...
+```
+
 ## Usage
 
 ```yaml

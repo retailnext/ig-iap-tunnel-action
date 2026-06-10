@@ -25,6 +25,10 @@ inputs:
     required: false
     default: ${{ github.token }}
 
+outputs:
+  proxy-url:
+    description: 'Proxy URL for the tunnel (e.g. http://localhost:8888)'
+
 runs:
   using: 'node24'
   main: 'dist/index.js'
