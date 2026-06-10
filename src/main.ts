@@ -65,6 +65,7 @@ async function run(): Promise<void> {
   core.info(`ig-iap-tunnel started (PID ${proc.pid}), waiting for proxy on port ${localPort}...`);
   await waitForPort(localPort, 60_000);
   core.info(`Proxy is ready on port ${localPort}`);
+  core.setOutput('proxy-url', `http://localhost:${localPort}`);
 }
 
 async function download(

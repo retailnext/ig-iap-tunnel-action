@@ -31035,6 +31035,14 @@ function getInput(name, options) {
   }
   return val.trim();
 }
+function setOutput(name, value) {
+  const filePath = process.env["GITHUB_OUTPUT"] || "";
+  if (filePath) {
+    return issueFileCommand("OUTPUT", prepareKeyValueMessage(name, value));
+  }
+  process.stdout.write(os5.EOL);
+  issueCommand("set-output", { name }, toCommandValue(value));
+}
 function setFailed(message) {
   process.exitCode = ExitCode.Failure;
   error(message);
@@ -66574,6 +66582,7 @@ async function run() {
   info(`ig-iap-tunnel started (PID ${proc.pid}), waiting for proxy on port ${localPort}...`);
   await waitForPort(localPort, 6e4);
   info(`Proxy is ready on port ${localPort}`);
+  setOutput("proxy-url", `http://localhost:${localPort}`);
 }
 async function download(version3, binaryName, destDir, destPath) {
   const tarName = `${binaryName}.tar.gz`;
