@@ -37,6 +37,9 @@ jobs:
 
       - run: npm run build
 
+      - name: Smoke-test built bundles
+        run: npm run test:dist
+
       - name: Verify dist is up to date
         run: |
           if ! git diff --quiet dist/; then
