@@ -1,5 +1,4 @@
 import * as core from '@actions/core';
-import * as cache from '@actions/cache';
 import * as tc from '@actions/tool-cache';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -25,19 +24,21 @@ async function run(): Promise<void> {
 
   const platform = getPlatform();
   const binaryName = getBinaryName(version, platform.os, platform.arch);
-  const cacheDir = path.join(os.homedir(), '.ig-iap-tunnel', version);
-  const binaryPath = path.join(cacheDir, BINARY);
-  const cacheKey = `${BINARY}-${version}-${platform.os}-${platform.arch}`;
 
-  const hit = await cache.restoreCache([cacheDir], cacheKey);
-  if (!hit) {
-    core.info('Cache miss — downloading binary');
-    await download(version, binaryName, cacheDir, binaryPath);
-    await cache.saveCache([cacheDir], cacheKey);
+  // @actions/tool-cache keeps tools under RUNNER_TOOL_CACHE keyed by
+  // name/version/arch. On self-hosted runners this persists across runs; on
+  // GitHub-hosted runners each job is a fresh VM, so it re-downloads (a small
+  // release binary — cheap). This is the same pattern setup-* actions use.
+  let toolDir = tc.find(BINARY, version, platform.arch);
+  if (!toolDir) {
+    core.info('Tool cache miss — downloading binary');
+    toolDir = await download(version, binaryName, platform.arch);
     core.info('Binary cached');
   } else {
-    core.info(`Binary restored from cache (${cacheKey})`);
+    core.info(`Binary restored from tool cache (${version}/${platform.arch})`);
   }
+  const binaryPath = path.join(toolDir, BINARY);
+  fs.chmodSync(binaryPath, 0o755);
 
   const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ig-iap-tunnel-'));
   const logFile = path.join(logDir, 'ig-iap-tunnel.log');
@@ -71,9 +72,8 @@ async function run(): Promise<void> {
 async function download(
   version: string,
   binaryName: string,
-  destDir: string,
-  destPath: string,
-): Promise<void> {
+  arch: string,
+): Promise<string> {
   const tarName = `${binaryName}.tar.gz`;
   const url = `https://github.com/retailnext/ig-iap-tunnel/releases/download/${version}/${tarName}`;
 
@@ -86,9 +86,8 @@ async function download(
     throw new Error(`Binary '${BINARY}' not found in archive extracted at ${extractDir}`);
   }
 
-  fs.mkdirSync(destDir, { recursive: true });
-  fs.copyFileSync(found, destPath);
-  fs.chmodSync(destPath, 0o755);
+  // Cache just the binary under RUNNER_TOOL_CACHE; returns the cache dir.
+  return tc.cacheFile(found, BINARY, BINARY, version, arch);
 }
 
 run().catch(core.setFailed);

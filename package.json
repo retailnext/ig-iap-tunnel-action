@@ -5,11 +5,11 @@
   "private": true,
   "scripts": {
     "build": "esbuild src/main.ts --bundle --platform=node --target=node24 --outfile=dist/index.js && esbuild src/post.ts --bundle --platform=node --target=node24 --outfile=dist/post/index.js && node scripts/postbuild.js",
-    "test": "jest",
-    "all": "npm run build && npm test"
+    "test": "jest --testPathIgnorePatterns dist.test.ts",
+    "test:dist": "jest dist.test.ts",
+    "all": "npm run build && npm run test:dist && npm test"
   },
   "dependencies": {
-    "@actions/cache": "^6.1.0",
     "@actions/core": "^3.0.1",
     "@actions/tool-cache": "^4.0.0"
   },

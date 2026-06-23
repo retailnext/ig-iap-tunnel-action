@@ -34,7 +34,7 @@ jest.config.js
 
 1. **Resolve version** — if `latest`, calls GitHub releases API (authenticated with `github-token`) to get the concrete tag.
 2. **Platform mapping** — `process.platform`/`process.arch` → `linux|darwin|windows` / `amd64|arm64`.
-3. **Cache** — `@actions/cache` restores/saves `~/.ig-iap-tunnel/<version>/` keyed on `ig-iap-tunnel-<version>-<os>-<arch>`.
+3. **Cache** — `@actions/tool-cache` (`tc.find`/`tc.cacheFile`) stores the binary under `RUNNER_TOOL_CACHE` keyed by name/version/arch. Persists across runs on self-hosted runners; GitHub-hosted runners re-download each job (small binary). We deliberately do **not** use `@actions/cache` — its v6 line bundles the Azure Blob SDK (`@azure/storage-common`), whose ESM build uses `import.meta.url`; esbuild resolves that ESM variant into CJS output and emits `createRequire(undefined)`, crashing the action at load. See `__tests__/dist.test.ts`.
 4. **Download** — if cache miss, fetches `ig-iap-tunnel_<version>_<os>_<arch>.zip` from the GitHub release, extracts via `@actions/tool-cache`, copies binary to cache dir.
 5. **Start** (`main.ts`) — validates `local-port` (1–65535, not NaN); creates a unique log dir via `fs.mkdtempSync` (`$TMPDIR/ig-iap-tunnel-XXXXXX/ig-iap-tunnel.log`); spawns binary with `{ detached: true, stdio: ['ignore', logFd, logFd] }` + `unref()`; saves PID and log path to job state via `core.saveState`.
 6. **Stop** (`post.ts`, runs automatically with `post-if: always()`) — reads PID from state, SIGTERMs, polls with `kill -0` until exit (up to 10 s), then SIGKILLs; reads and prints the last 64 KB of the log file (with a truncation notice if larger).
@@ -90,7 +90,8 @@ npm run build         # bundle src/main.ts → dist/index.js and src/post.ts →
 
 - `lib.ts` contains only pure/testable functions; `main.ts` and `post.ts` are thin orchestration layers that integrate with Actions APIs and child processes.
 - `waitForExit` uses `kill -0` polling (not `wait`) because the post shell is a different process than the one that spawned the tunnel.
-- `@actions/cache` v4+ is required (v3 is deprecated).
+- Caching uses `@actions/tool-cache` only (no `@actions/cache`) — see "How it works" step 3 for why. This keeps the bundle free of the Azure SDK and its `import.meta.url` usage.
+- `npm run test:dist` runs the smoke tests in `__tests__/dist.test.ts`: they load the committed `dist/` bundles in a child process and assert no `import_meta.url`/`ERR_INVALID_ARG_VALUE` regression. `npm test` runs only the unit suite (it ignores `dist.test.ts`). CI runs `test:dist` as an explicit step in the `build` job (after `npm run build`); locally, `npm run all` runs build → test:dist → test.
 - The log file lives in a `mkdtemp`-created directory so concurrent or repeated runs on the same runner don't collide or read stale output.
 - `readTail` in `lib.ts` reads the last N bytes of a file, skips any partial first line at the seek boundary, and prepends a truncation notice — used by `post.ts` to cap log output at 64 KB.
 - `local-port` is parsed and range-checked (1–65535) immediately after input reading; the resulting number is used for spawn args, log messages, and `waitForPort` — no repeated `parseInt` at call sites.
