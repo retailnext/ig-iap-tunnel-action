@@ -1,0 +1,50 @@
+name: Renovate PR Update
+on:
+  pull_request:
+    types: [opened, synchronize]
+permissions:
+  contents: write
+concurrency:
+  group: renovate-build-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  build:
+    if: ${{ github.actor == 'renovate[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ vars.RENOVATE_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Commit dist if changed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          if ! git diff --quiet dist/; then
+            USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+            git config user.name "${APP_SLUG}[bot]"
+            git config user.email "${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+            git add dist/
+            git commit -s -m "chore: rebuild dist"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          else
+            echo "dist/ is unchanged; nothing to commit."
+          fi
