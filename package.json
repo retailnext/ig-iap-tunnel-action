@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "GitHub Action to set up an IAP tunnel to a GCP instance group via ig-iap-tunnel",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "esbuild src/main.ts --bundle --platform=node --target=node24 --outfile=dist/index.js && esbuild src/post.ts --bundle --platform=node --target=node24 --outfile=dist/post/index.js && node scripts/postbuild.js",
-    "test": "jest --testPathIgnorePatterns dist.test.ts",
-    "test:dist": "jest dist.test.ts",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node24 --banner:js=\"import{createRequire as __cr}from'module';const require=__cr(import.meta.url);\" --outfile=dist/index.js && esbuild src/post.ts --bundle --platform=node --format=esm --target=node24 --banner:js=\"import{createRequire as __cr}from'module';const require=__cr(import.meta.url);\" --outfile=dist/post/index.js && node scripts/postbuild.mjs",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --testPathIgnorePatterns dist.test.ts",
+    "test:dist": "NODE_OPTIONS=--experimental-vm-modules jest dist.test.ts",
     "all": "npm run build && npm run test:dist && npm test"
   },
   "dependencies": {
@@ -14,7 +15,6 @@
     "@actions/tool-cache": "^4.0.0"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.13.2",
     "esbuild": "^0.28.1",
     "jest": "^30.4.2",

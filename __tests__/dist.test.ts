@@ -4,17 +4,21 @@
  * unit suite so it always runs against freshly-built output.
  *
  * These run against the committed dist/ files (not src/) so they catch
- * bundling regressions that unit tests on src/ cannot detect — e.g. a
- * dependency whose ESM build uses import.meta.url that esbuild leaves
- * unresolved, which causes createRequire(undefined) to throw
- * ERR_INVALID_ARG_VALUE at load time (the @actions/cache@6 → Azure SDK
- * regression that motivated these tests).
+ * bundling regressions that unit tests on src/ cannot detect. The bundles are
+ * ESM (--format=esm). A CommonJS leaf dependency (tunnel, via
+ * @actions/http-client) calls require() at load time, which only works because
+ * the build injects a createRequire banner — drop that banner and the bundle
+ * dies at load with `Dynamic require of "net" is not supported`. The runtime
+ * check below catches exactly that class of load-time failure.
  */
 
+import { describe, it, expect } from '@jest/globals';
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_ROOT = path.join(__dirname, '..', 'dist');
 const BUNDLES = [
   path.join(DIST_ROOT, 'index.js'),
@@ -26,11 +30,12 @@ describe('dist bundle integrity', () => {
     expect(fs.existsSync(bundle)).toBe(true);
   });
 
-  // Regression guard: esbuild emits `import_meta.url` (referencing an empty
-  // `var import_meta = {}`) when it bundles a dependency's ESM build that uses
-  // import.meta.url into CJS output. That becomes createRequire(undefined) and
-  // crashes at load. If a future dependency reintroduces this, fail here.
-  it.each(BUNDLES)('does not contain unresolved import_meta.url: %s', (bundle) => {
+  // Regression guard: the broken CJS form is `import_meta.url` (underscore),
+  // which references an empty `var import_meta = {}` esbuild emits when it
+  // lowers a dependency's import.meta.url into CommonJS output, becoming
+  // createRequire(undefined). Our ESM output uses the native `import.meta.url`
+  // (dot) instead, which is valid; the underscore form must never appear.
+  it.each(BUNDLES)('does not contain lowered import_meta.url: %s', (bundle) => {
     const content = fs.readFileSync(bundle, 'utf8');
     expect(content).not.toMatch(/import_meta\.url/);
   });
@@ -41,7 +46,7 @@ describe('dist bundle integrity', () => {
   // must NOT happen is a module-load/initialization crash. We run in a child
   // (not require()) so the action's setFailed can't poison this process's exit
   // code, and so we exercise the same entrypoint the runner does.
-  const LOAD_CRASH = /ERR_INVALID_ARG_VALUE|Cannot find module|is not a function|before initialization|ERR_REQUIRE_ESM/;
+  const LOAD_CRASH = /Dynamic require of|ERR_INVALID_ARG_VALUE|Cannot find module|is not a function|before initialization|ERR_REQUIRE_ESM/;
   it.each(BUNDLES)('loads without a module-load crash: %s', (bundle) => {
     const result = spawnSync(process.execPath, [bundle], {
       encoding: 'utf8',

@@ -1,12 +1,17 @@
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import * as fs from 'fs';
 import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
-import * as https from 'https';
 import { EventEmitter } from 'events';
-import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit, readTail } from '../src/lib';
 
-jest.mock('https');
+// ESM module mocking: register before importing the module under test.
+// lib.ts does `import { get } from 'https'`, so we replace `https.get`.
+const mockHttpsGet = jest.fn<(opts: unknown, cb: (res: EventEmitter) => void) => EventEmitter>();
+jest.unstable_mockModule('https', () => ({ get: mockHttpsGet }));
+
+const { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit, readTail } =
+  await import('../src/lib');
 
 // ---------------------------------------------------------------------------
 // getPlatform
@@ -70,8 +75,8 @@ describe('resolveVersion', () => {
   });
 
   it('fetches the latest tag from GitHub when input is "latest"', async () => {
-    const mockResponse = new EventEmitter() as ReturnType<typeof https.get>;
-    (https.get as jest.Mock).mockImplementation((_opts: unknown, cb: (res: EventEmitter) => void) => {
+    const mockResponse = new EventEmitter();
+    mockHttpsGet.mockImplementation((_opts: unknown, cb: (res: EventEmitter) => void) => {
       cb(mockResponse);
       return mockResponse;
     });
@@ -84,8 +89,8 @@ describe('resolveVersion', () => {
   });
 
   it('rejects when the API response has no tag_name', async () => {
-    const mockResponse = new EventEmitter() as ReturnType<typeof https.get>;
-    (https.get as jest.Mock).mockImplementation((_opts: unknown, cb: (res: EventEmitter) => void) => {
+    const mockResponse = new EventEmitter();
+    mockHttpsGet.mockImplementation((_opts: unknown, cb: (res: EventEmitter) => void) => {
       cb(mockResponse);
       return mockResponse;
     });
@@ -99,7 +104,7 @@ describe('resolveVersion', () => {
 
   it('rejects on network error', async () => {
     const mockReq = new EventEmitter();
-    (https.get as jest.Mock).mockImplementation((_opts: unknown, _cb: unknown) => mockReq);
+    mockHttpsGet.mockImplementation((_opts: unknown, _cb: unknown) => mockReq);
 
     const promise = resolveVersion('latest');
     mockReq.emit('error', new Error('ECONNREFUSED'));
@@ -265,7 +270,7 @@ describe('waitForExit', () => {
   });
 
   it('resolves immediately when process no longer exists', async () => {
-    const killMock = jest.fn().mockImplementation(() => {
+    const killMock = jest.fn<(pid: number, sig: string | number) => void>().mockImplementation(() => {
       const err = Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
       throw err;
     });
@@ -276,7 +281,7 @@ describe('waitForExit', () => {
 
   it('SIGKILLs after timeout if process does not exit', async () => {
     let callCount = 0;
-    const killMock = jest.fn().mockImplementation((_pid: number, sig: string | number) => {
+    const killMock = jest.fn<(pid: number, sig: string | number) => void>().mockImplementation((_pid, sig) => {
       if (sig === 0 || sig === 'SIGKILL') {
         callCount++;
         // Always appear alive for signal 0, silently accept SIGKILL
