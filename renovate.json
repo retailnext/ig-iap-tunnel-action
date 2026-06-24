@@ -11,16 +11,18 @@
     "dependencies"
   ],
   "lockFileMaintenance": {
-    "enabled": true
+    "enabled": true,
+    "automerge": true
   },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    }
+  ],
   "postUpdateOptions": [
     "gomodTidy",
     "gomodUpdateImportPaths"
   ],
-  "rebaseWhen": "conflicted",
-  "postUpgradeTasks": {
-    "commands": ["npm run build"],
-    "fileFilters": ["dist/**"],
-    "executionMode": "branch"
-  }
+  "rebaseWhen": "conflicted"
 }
