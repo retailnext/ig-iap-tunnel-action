@@ -10,8 +10,16 @@ import { EventEmitter } from 'events';
 const mockHttpsGet = jest.fn<(opts: unknown, cb: (res: EventEmitter) => void) => EventEmitter>();
 jest.unstable_mockModule('https', () => ({ get: mockHttpsGet }));
 
-const { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, waitForExit, readTail } =
-  await import('../src/lib');
+const {
+  getPlatform,
+  getBinaryName,
+  resolveVersion,
+  findFile,
+  waitForPort,
+  waitForExit,
+  readTail,
+  parseProxyDomains,
+} = await import('../src/lib');
 
 // ---------------------------------------------------------------------------
 // getPlatform
@@ -110,6 +118,39 @@ describe('resolveVersion', () => {
     mockReq.emit('error', new Error('ECONNREFUSED'));
 
     await expect(promise).rejects.toThrow('ECONNREFUSED');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseProxyDomains
+// ---------------------------------------------------------------------------
+describe('parseProxyDomains', () => {
+  it('returns empty array for empty input', () => {
+    expect(parseProxyDomains('')).toEqual([]);
+  });
+
+  it('splits comma-separated domains', () => {
+    expect(parseProxyDomains('example.com,internal.net')).toEqual(['example.com', 'internal.net']);
+  });
+
+  it('trims whitespace and skips empty entries', () => {
+    expect(parseProxyDomains(' example.com , ,internal.net,')).toEqual([
+      'example.com',
+      'internal.net',
+    ]);
+  });
+
+  it('rejects wildcards', () => {
+    expect(() => parseProxyDomains('*.example.com')).toThrow('wildcards are not supported');
+    expect(() => parseProxyDomains('ex?mple.com')).toThrow('wildcards are not supported');
+  });
+
+  it('rejects leading dot', () => {
+    expect(() => parseProxyDomains('.example.com')).toThrow('leading dot is not allowed');
+  });
+
+  it('rejects trailing dot', () => {
+    expect(() => parseProxyDomains('example.com.')).toThrow('trailing dot is not allowed');
   });
 });
 

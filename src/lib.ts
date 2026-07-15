@@ -62,6 +62,27 @@ export function fetchLatestTag(token: string): Promise<string> {
   });
 }
 
+// Mirrors the ig-iap-tunnel binary's own flag validation so bad input fails
+// immediately instead of after the 60s waitForPort timeout.
+export function parseProxyDomains(input: string): string[] {
+  const domains: string[] = [];
+  for (const raw of input.split(',')) {
+    const d = raw.trim();
+    if (!d) continue;
+    if (/[*?]/.test(d)) {
+      throw new Error(`Invalid proxy domain '${d}': wildcards are not supported`);
+    }
+    if (d.startsWith('.')) {
+      throw new Error(`Invalid proxy domain '${d}': leading dot is not allowed`);
+    }
+    if (d.endsWith('.')) {
+      throw new Error(`Invalid proxy domain '${d}': trailing dot is not allowed`);
+    }
+    domains.push(d);
+  }
+  return domains;
+}
+
 export function findFile(dir: string, name: string): string | null {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
