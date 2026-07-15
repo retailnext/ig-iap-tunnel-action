@@ -20,6 +20,14 @@ inputs:
     description: 'Local port to listen on'
     required: false
     default: '8888'
+  proxy-domains:
+    description: >-
+      Comma-separated list of domains (including subdomains) to route through
+      the IAP tunnel. When set, only matching destinations use the tunnel;
+      everything else is dialed directly. When unset, all traffic goes through
+      the tunnel.
+    required: false
+    default: ''
   github-token:
     description: 'GitHub token used to resolve the latest release version'
     required: false

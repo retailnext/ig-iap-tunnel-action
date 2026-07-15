@@ -23137,6 +23137,24 @@ function fetchLatestTag(token) {
     }).on("error", reject);
   });
 }
+function parseProxyDomains(input) {
+  const domains = [];
+  for (const raw of input.split(",")) {
+    const d = raw.trim();
+    if (!d) continue;
+    if (/[*?]/.test(d)) {
+      throw new Error(`Invalid proxy domain '${d}': wildcards are not supported`);
+    }
+    if (d.startsWith(".")) {
+      throw new Error(`Invalid proxy domain '${d}': leading dot is not allowed`);
+    }
+    if (d.endsWith(".")) {
+      throw new Error(`Invalid proxy domain '${d}': trailing dot is not allowed`);
+    }
+    domains.push(d);
+  }
+  return domains;
+}
 function findFile(dir, name) {
   for (const entry of fs4.readdirSync(dir, { withFileTypes: true })) {
     const full = path5.join(dir, entry.name);
@@ -23187,6 +23205,7 @@ async function run() {
   if (isNaN(localPort) || localPort < 1 || localPort > 65535) {
     throw new Error(`Invalid local-port: ${localPortInput}`);
   }
+  const proxyDomains = parseProxyDomains(getInput("proxy-domains"));
   const token = getInput("github-token") || process.env.GITHUB_TOKEN || "";
   const version = await resolveVersion(versionInput, token);
   info(`ig-iap-tunnel version: ${version}`);
@@ -23205,18 +23224,19 @@ async function run() {
   const logDir = fs5.mkdtempSync(path6.join(os7.tmpdir(), "ig-iap-tunnel-"));
   const logFile = path6.join(logDir, "ig-iap-tunnel.log");
   const logFd = fs5.openSync(logFile, "w");
-  const proc = spawn2(
-    binaryPath,
-    [
-      "--instance-group-id",
-      instanceGroupId,
-      "--remote-port",
-      remotePort,
-      "--local-port",
-      String(localPort)
-    ],
-    { detached: true, stdio: ["ignore", logFd, logFd] }
-  );
+  const args = [
+    "--instance-group-id",
+    instanceGroupId,
+    "--remote-port",
+    remotePort,
+    "--local-port",
+    String(localPort)
+  ];
+  if (proxyDomains.length > 0) {
+    args.push("--proxy-domains", proxyDomains.join(","));
+    info(`Selective proxying enabled for: ${proxyDomains.join(", ")}`);
+  }
+  const proc = spawn2(binaryPath, args, { detached: true, stdio: ["ignore", logFd, logFd] });
   fs5.closeSync(logFd);
   proc.unref();
   if (proc.pid === void 0) {

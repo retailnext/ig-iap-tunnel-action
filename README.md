@@ -39,6 +39,7 @@ steps:
 | `version`           | no       | `latest`              | Release tag of ig-iap-tunnel to use (e.g. `v1.2.3`) |
 | `remote-port`       | no       | `8888`                | Port on the remote instance to forward |
 | `local-port`        | no       | `8888`                | Local port to listen on |
+| `proxy-domains`     | no       |                       | Comma-separated domains (including subdomains) to route through the tunnel; everything else is dialed directly. Unset = all traffic goes through the tunnel |
 | `github-token`      | no       | `${{ github.token }}` | Token used to resolve the latest release via the GitHub API |
 
 ## Cleanup
@@ -59,6 +60,19 @@ After the tunnel is stopped, the post step prints the tunnel's output under a co
     remote-port: '9090'
     local-port: '9090'
 ```
+
+## Selective proxying
+
+By default every connection is forwarded through the IAP tunnel. When `proxy-domains` is set, only destinations matching the listed domains (exact or subdomain match) go through the tunnel; everything else is dialed directly from the runner:
+
+```yaml
+- uses: retailnext/ig-iap-tunnel-action@v1
+  with:
+    instance_group_id: 'projects/my-project/regions/us-central1/instanceGroups/my-group'
+    proxy-domains: 'example.com,internal.net'
+```
+
+Note that with `proxy-domains` set, traffic on the local port must speak HTTP proxy protocol (the usual `HTTPS_PROXY` setup). Wildcards (`*`, `?`) and leading/trailing dots are rejected — subdomains match automatically (`example.com` covers `api.example.com`).
 
 ## Caching
 

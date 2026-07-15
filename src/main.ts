@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
-import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort } from './lib';
+import { getPlatform, getBinaryName, resolveVersion, findFile, waitForPort, parseProxyDomains } from './lib';
 
 const BINARY = 'ig-iap-tunnel';
 
@@ -17,6 +17,7 @@ async function run(): Promise<void> {
   if (isNaN(localPort) || localPort < 1 || localPort > 65535) {
     throw new Error(`Invalid local-port: ${localPortInput}`);
   }
+  const proxyDomains = parseProxyDomains(core.getInput('proxy-domains'));
   const token = core.getInput('github-token') || process.env.GITHUB_TOKEN || '';
 
   const version = await resolveVersion(versionInput, token);
@@ -44,15 +45,17 @@ async function run(): Promise<void> {
   const logFile = path.join(logDir, 'ig-iap-tunnel.log');
   const logFd = fs.openSync(logFile, 'w');
 
-  const proc = spawn(
-    binaryPath,
-    [
-      '--instance-group-id', instanceGroupId,
-      '--remote-port', remotePort,
-      '--local-port', String(localPort),
-    ],
-    { detached: true, stdio: ['ignore', logFd, logFd] },
-  );
+  const args = [
+    '--instance-group-id', instanceGroupId,
+    '--remote-port', remotePort,
+    '--local-port', String(localPort),
+  ];
+  if (proxyDomains.length > 0) {
+    args.push('--proxy-domains', proxyDomains.join(','));
+    core.info(`Selective proxying enabled for: ${proxyDomains.join(', ')}`);
+  }
+
+  const proc = spawn(binaryPath, args, { detached: true, stdio: ['ignore', logFd, logFd] });
 
   fs.closeSync(logFd);
   proc.unref();

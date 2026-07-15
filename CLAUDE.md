@@ -28,6 +28,7 @@ jest.config.js
 | `instance_group_id`| yes      | —                    | GCP instance group: `projects/{p}/regions/{r}/instanceGroups/{name}`        |
 | `remote-port`      | no       | `8888`               | Port on the remote instance                                                 |
 | `local-port`       | no       | `8888`               | Local port to listen on                                                     |
+| `proxy-domains`    | no       | —                    | Comma-separated domains to route through the tunnel; others dial directly   |
 | `github-token`     | no       | `${{ github.token }}`| Token used to resolve the latest release version without rate-limiting      |
 
 ## How it works
@@ -100,4 +101,5 @@ The project is **ESM** (`"type": "module"`). esbuild bundles with `--format=esm`
 - The log file lives in a `mkdtemp`-created directory so concurrent or repeated runs on the same runner don't collide or read stale output.
 - `readTail` in `lib.ts` reads the last N bytes of a file, skips any partial first line at the seek boundary, and prepends a truncation notice — used by `post.ts` to cap log output at 64 KB.
 - `local-port` is parsed and range-checked (1–65535) immediately after input reading; the resulting number is used for spawn args, log messages, and `waitForPort` — no repeated `parseInt` at call sites.
+- `proxy-domains` is validated by `parseProxyDomains` in `lib.ts` (mirrors the binary's flag validation: rejects wildcards `*?`, leading/trailing dots; trims and skips empty entries) so bad input fails immediately instead of after the 60 s `waitForPort` timeout. When non-empty, `--proxy-domains` is appended to the spawn args.
 - `scripts/postbuild.mjs` strips an unused `var net2 = require("net")` line that older esbuild output injected from the `tunnel` package; it silently no-ops if the line is absent (the ESM build no longer emits it, but the step is kept as a defensive no-op since esbuild output varies across versions).
