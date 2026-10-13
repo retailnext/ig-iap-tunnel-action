@@ -18,6 +18,11 @@
     {
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "automerge": true
+    },
+    {
+      "description": "ts-jest requires the TypeScript JS compiler API, which TypeScript 7 no longer ships",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
     }
   ],
   "postUpdateOptions": [
